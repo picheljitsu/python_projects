@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 #time:(from:'2017-06-30T22:18:00.000Z',mode:absolute,to:'2017-06-30T22:22:00.000Z'),
 #timetime:(from:'2017-06-30T22:18:25.000Z',mode:absolute,to:'2017-06-30T22:22:25.000Z'))
 #&_a=(columns:!(sourceAddress,destinationAddress,requestUrl,requestContext,eventOutcome),
-#index:bluecoat,interval:auto,query:(query_string:(analyze_wildcard:!t,lowercase_expanded_terms:!f,query:'10.34.136.13%20AND%20198.177.10.236')),sort:!('@timestamp',desc))
+#index:bluecoat,interval:auto,query:(query_string:(analyze_wildcard:!t,lowercase_expanded_terms:!f,query:'XX.XX.XXX.13%20AND%20XXX.XXX.10.236')),sort:!('@timestamp',desc))
 
 
 local_timestamp = "2017/06/30 17:20:25"
