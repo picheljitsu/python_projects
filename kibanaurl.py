@@ -20,7 +20,7 @@ def construct_link(local_timestamp,src_host,dst_host,zulu_diff,time_delta):
 	zulu_timestamp = local_timestamp + timedelta(hours=zulu_diff) #Convert to Zulu first
 	zulu_delta_before = ((zulu_timestamp - timedelta(minutes=time_delta)).strftime("%Y-%m-%d %H:%M:%S")).replace(' ','T') + ".000Z"	#Subtract delta and format
 	zulu_delta_after = ((zulu_timestamp + timedelta(minutes=time_delta)).strftime("%Y-%m-%d %H:%M:%S")).replace(' ','T') + ".000Z"	#Add delta and format
-	url = "https://securitas.usaa.com/app/kibana#/discover?_g=(refreshInterval:(display:Off,pause:!f,value:0),"
+	url = "https://###OMITTED#####/app/kibana#/discover?_g=(refreshInterval:(display:Off,pause:!f,value:0),"
 	url += "time:(from:'%s',mode:absolute,to:'%s'))" % (zulu_delta_before,zulu_delta_after)
 	url += "&_a=(columns:!(sourceAddress,destinationAddress,requestUrl,requestContext,eventOutcome),index:bluecoat,interval:auto,"
 	url += "query:(query_string:(analyze_wildcard:!t,lowercase_expanded_terms:!f,query:'%s%%20AND%%20%s')),sort:!('@timestamp',desc))" % (src_host,dst_host)
