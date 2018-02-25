@@ -11,7 +11,8 @@ import random
 proxy_url =             "https://raw.githubusercontent.com/clarketm/proxy-list/master/proxy-list.txt"
 outfile =               "/home/pi/Desktop/proxy_list.txt"
 user_agents_file =      "/home/pi/Desktop/user_agents.txt"
-myURL =                 "http://cyberjitsu.blogspot.com"
+myURL =                 #YO URL HERE
+
 
 print "[+] Initiating connection..."
 
@@ -98,8 +99,6 @@ with open(user_agents_file,"r") as f:
         user_agents = f.readlines()
         f.close()
 
-
-
 for i in non_ssl_dict:
         user_agent_str = (random.choice(user_agents)).rstrip()
         user_agent_header = { 'User-Agent': user_agent_str }
@@ -118,6 +117,4 @@ for i in non_ssl_dict:
 
         except:
                 print "[-] Request through proxy failed: %s" % i
-
-
         time.sleep(2)
