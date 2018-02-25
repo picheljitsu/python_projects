@@ -13,9 +13,7 @@ outfile =               #YO OUTFILE HERE
 user_agents_file =      #USER AGENTS FILE N SHIT
 myURL =                 #YO URL HERE
 
-
 print "[+] Initiating connection..."
-
 
 def getProxyData(URL,outfile):
 
@@ -30,7 +28,6 @@ def getProxyData(URL,outfile):
                 for i in url_list:
                         f.write(i+"\n")
                 f.close()
-
 
 print("[+] Pulling latest proxy list...")
 
