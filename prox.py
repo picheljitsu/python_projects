@@ -9,8 +9,8 @@ import random
 #URL = sys.argv[1]
 
 proxy_url =             "https://raw.githubusercontent.com/clarketm/proxy-list/master/proxy-list.txt"
-outfile =               "/home/pi/Desktop/proxy_list.txt"
-user_agents_file =      "/home/pi/Desktop/user_agents.txt"
+outfile =               #YO OUTFILE HERE
+user_agents_file =      #USER AGENTS FILE N SHIT
 myURL =                 #YO URL HERE
 
 
