@@ -1,4 +1,5 @@
 #!/usr/bin/python
+#Take output from ObjDump and format into shellcode
 
 import sys
 import os
