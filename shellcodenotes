@@ -1,1 +1,4 @@
 execve registers: rdi,rsi,rbx
+
+gdb search for strings in libc
+first functions need to be imported, then run find &<functionname>,9999999,"<string>"  
