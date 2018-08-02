@@ -89,3 +89,9 @@ rdi = stdin file descriptor
 rsi = buffer
 rdx = buffer_size
 eax = read syscall 0
+
+###################################################################
+ROP notes
+When calling system to run /bin/sh, the string pointer didn't work when it was placed on the stack. 
+test rdi, rdi instruction failed
+
