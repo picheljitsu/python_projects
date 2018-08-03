@@ -6,12 +6,16 @@ import sys
 import time
 import random
 
-#URL = sys.argv[1]
+#
+# Collects proxy list from https://raw.githubusercontent.com/clarketm/proxy-list/master/proxy-list.txt
+#
+proxy_url = sys.argv[1]
+outfile = sys.argv[2]
+user_agents_file = sys.argv[3]
+myURL = sys.argv[4]
 
-proxy_url =             "https://raw.githubusercontent.com/clarketm/proxy-list/master/proxy-list.txt"
-outfile =               #YO OUTFILE HERE
-user_agents_file =      #USER AGENTS FILE N SHIT
-myURL =                 #YO URL HERE
+if not proxy_url:
+        proxy_url = "https://raw.githubusercontent.com/clarketm/proxy-list/master/proxy-list.txt"           
 
 print "[+] Initiating connection..."
 
@@ -28,22 +32,11 @@ def getProxyData(URL,outfile):
                 for i in url_list:
                         f.write(i+"\n")
                 f.close()
-
-print("[+] Pulling latest proxy list...")
-
-getProxyData(proxy_url, outfile)
-
-with open(outfile, "r") as proxy_list:
-
-        plist = proxy_list.readlines()
-        proxy_list.close()
-
+                
 def googlePassedProxies(proxyIPs,checkchar="+"):
-        #((i.rstrip()).split(" "))
         return [i for i in proxyIPs if ((i.rstrip()).split(" "))[-1] is checkchar]
 
 def proxysecurity(proxyIPs, security="ssl"):
-
         #inefficient, but convenient. need to mod this if proxy list gets too huge
         ssl_proxies = []
         nonssl_proxies = []
@@ -62,23 +55,28 @@ def proxysecurity(proxyIPs, security="ssl"):
                 return nonssl_proxies
 
 def formatIPs(proxyIPs):
-
         proxy_dict = {}
+        
         for entry in proxyIPs:
-
                 entry = entry.rstrip()
                 entry = entry.split(" ")[0]
 
                 try:
-
                         (IP, Port) = entry.split(':')
-
                         proxy_dict[IP] = Port
-
                 except:
                         pass
 
         return proxy_dict
+
+print("[+] Pulling latest proxy list...")
+
+getProxyData(proxy_url, outfile)
+
+with open(outfile, "r") as proxy_list:
+
+        plist = proxy_list.readlines()
+        proxy_list.close()
 
 #Get Google Passed Proxies
 googleproxies = googlePassedProxies(plist)
