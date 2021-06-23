@@ -12,12 +12,12 @@ def tomd5(s):
     m.update(s)
     return m.hexdigest()
 
-if len(sys.argv < 3):
+if len(sys.argv) < 3:
     print("Usage: emdeefive.py <HOST_IP> <PORT>")
     exit()
 else:      
     targhost =  sys.argv[1]
-    targport = sys.argv[2]
+    targport = int(sys.argv[2])
 
 #Manually build the http requests and send raw
 http_req = """GET / HTTP/1.1\r
