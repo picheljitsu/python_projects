@@ -6,12 +6,12 @@ import socket
 import re
 import sys
 
-if len(sys.argv < 3):
+if len(sys.argv) < 3:
     print("Usage: templated.py <HOST_IP> <PORT>")
     exit()
 else:      
     targhost =  sys.argv[1]
-    targport = sys.argv[2]
+    targport = int(sys.argv[2])
 
 def connect():
     s = socket.socket()    
